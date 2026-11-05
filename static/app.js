@@ -452,7 +452,7 @@
   }
 
   async function loadData(force = false) {
-    const res = await fetch(force ? "/api/refresh" : "/api/schedule",
+    const res = await fetch(force ? "api/refresh" : "api/schedule",
                             { method: force ? "POST" : "GET", cache: "no-store" });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);

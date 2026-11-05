@@ -21,7 +21,62 @@ or double-click `start.bat` (Windows). Options:
 
 The server fetches the SSRL page at start-up and every hour, and caches the parsed
 result in `data/schedule.json` (used as a fallback if SSRL is unreachable).
-The ↻ button in the UI forces a re-fetch.
+The ↻ button in the UI forces a re-fetch (at most once a minute).
+
+## Deploying on the VM (Rocky Linux 9 + nginx)
+
+Served at `/mail-in-xas/xray_schedule/`: nginx proxies that prefix to the Python server,
+which runs as the systemd service `ssrl-beamtime` on `127.0.0.1:8010` under the
+unprivileged user `beamtime`, from `/opt/ssrl_beam_time_schedule`.
+
+SLAC's reverse proxy already forwards `https://www-ssrl.slac.stanford.edu/mail-in-xas/*`
+to the VM (TLS ends there), so the page is public at
+`https://www-ssrl.slac.stanford.edu/mail-in-xas/xray_schedule/` as soon as nginx serves it.
+
+nginx belongs to the mail-in XAS portal: its single `server` block
+(`/etc/nginx/conf.d/mail-in-xas.conf`) contains `include /etc/nginx/mail-in-xas.d/*.conf;`
+and already sets `absolute_redirect off;`. This project only drops its location snippet
+into that directory and never edits the portal's config.
+
+First install, and every update afterwards (the script is idempotent):
+
+```
+curl -fsSLO https://raw.githubusercontent.com/slaclab/ssrl_beam_time_schedule/main/deploy/install.sh
+sudo bash install.sh
+# later updates:  sudo bash /opt/ssrl_beam_time_schedule/deploy/install.sh
+```
+
+[`deploy/install.sh`](deploy/install.sh):
+
+1. preflight – `git`, `python3` (≥ 3.9; Rocky 9 ships 3.9), `curl`, `nginx`; outbound HTTPS
+   to the SSRL schedule page
+2. creates the system user `beamtime`; clones / fast-forwards the repo; `py_compile` check
+3. installs and restarts the `ssrl-beamtime` service, checks `127.0.0.1:8010` answers
+4. copies [`deploy/nginx-xray_schedule.conf`](deploy/nginx-xray_schedule.conf) to
+   `/etc/nginx/mail-in-xas.d/xray_schedule.conf`, runs `nginx -t` and reloads nginx;
+   if the test fails the previous snippet is restored and the script stops
+5. checks that SELinux allows nginx → port 8010, and runs the checks below
+
+**SELinux (enforcing)** – one-time, label only this port (preferred over the global
+`httpd_can_network_connect` boolean; the portal does the same for its ports):
+
+```
+sudo semanage port -a -t http_port_t -p tcp 8010    # use -m instead of -a if already defined
+```
+
+**Checks** (run by the script; to repeat by hand on the VM):
+
+```
+curl -sI https://www-ssrl.slac.stanford.edu/xray_schedule.html                          # outbound HTTPS works
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost/mail-in-xas/xray_schedule    # 301
+curl -s http://localhost/mail-in-xas/xray_schedule/api/schedule | head -c 200          # JSON
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost/mail-in-xas/                 # 200, portal unaffected
+```
+
+Useful commands: `systemctl status ssrl-beamtime`, `journalctl -u ssrl-beamtime -f`.
+
+Because the page is public, `POST /api/refresh` (the ↻ button) re-fetches at most once a minute.
+Don't commit the VM's hostname or IP addresses, or the proxy's address, to this (public) repository.
 
 ## Using it
 
@@ -42,7 +97,8 @@ The ↻ button in the UI forces a re-fetch.
 |---|---|
 | `ssrl_schedule.py` | fetch + parse the SSRL HTML into JSON, classify cells, detect run periods. Run it directly to print a summary: `python ssrl_schedule.py [saved.html] [-o out.json]` |
 | `server.py` | small HTTP server: serves `static/`, `GET /api/schedule`, `POST /api/refresh` |
-| `static/` | the UI (plain HTML / CSS / JS, no build step) |
+| `static/` | the UI (plain HTML / CSS / JS, no build step; all URLs relative so it works under any path prefix) |
+| `deploy/` | systemd unit, nginx location snippet, `install.sh` for the Rocky 9 VM |
 
 ## Notes on the source data
 

@@ -1,7 +1,7 @@
 """BeamTime: local web server for the SSRL beam port schedule calendar.
 
     python server.py                 # http://localhost:8000
-    python server.py --port 8080 --host 0.0.0.0   # e.g. on the VM
+    python server.py --port 8010                  # on the VM, behind nginx (see deploy/)
 
 Endpoints:
     GET  /                  calendar UI (static/)
@@ -27,6 +27,7 @@ import ssrl_schedule
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 CACHE_FILE = ROOT / "data" / "schedule.json"
+MANUAL_REFRESH_COOLDOWN = 60  # seconds; the UI refresh button won't re-fetch more often
 
 log = logging.getLogger("beamtime")
 
@@ -52,8 +53,12 @@ class ScheduleCache:
         except Exception as exc:  # corrupt cache: ignore, will refetch
             log.warning("Ignoring unreadable cache %s: %s", self.cache_file, exc)
 
-    def refresh(self) -> bool:
+    def refresh(self, min_interval: float = 0) -> bool:
+        """Re-fetch the source. Skipped if the last successful fetch is younger
+        than `min_interval` seconds (protects SSRL from repeated manual refreshes)."""
         with self._lock:
+            if self._data is not None and time.monotonic() - self._loaded_at < min_interval:
+                return True
             try:
                 log.info("Fetching %s", ssrl_schedule.SOURCE_URL)
                 data = ssrl_schedule.fetch_schedule()
@@ -98,7 +103,7 @@ def make_handler(cache: ScheduleCache):
 
         def do_POST(self):
             if self.path.split("?")[0] == "/api/refresh":
-                cache.refresh()
+                cache.refresh(min_interval=MANUAL_REFRESH_COOLDOWN)
                 return self._send_schedule()
             self.send_error(HTTPStatus.NOT_FOUND)
 

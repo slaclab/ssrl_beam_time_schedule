@@ -1,0 +1,30 @@
+[Unit]
+Description=SSRL Beam Time schedule calendar
+Documentation=https://github.com/slaclab/ssrl_beam_time_schedule
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=beamtime
+Group=beamtime
+WorkingDirectory=/opt/ssrl_beam_time_schedule
+# Port must match proxy_pass in deploy/nginx-xray_schedule.conf
+ExecStart=/usr/bin/python3 server.py --host 127.0.0.1 --port 8010
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=5
+
+# Hardening: read-only system, only the cache directory is writable.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/opt/ssrl_beam_time_schedule/data
+
+[Install]
+WantedBy=multi-user.target
