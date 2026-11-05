@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 User=beamtime
 Group=beamtime
-WorkingDirectory=/opt/ssrl_beam_time_schedule
+WorkingDirectory=/SSRL_LOCAL_OM/ssrl_beam_time_schedule
 # Port must match proxy_pass in deploy/nginx-xray_schedule.conf
 ExecStart=/usr/bin/python3 server.py --host 127.0.0.1 --port 8010
 Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
@@ -24,7 +24,7 @@ PrivateDevices=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=/opt/ssrl_beam_time_schedule/data
+ReadWritePaths=/SSRL_LOCAL_OM/ssrl_beam_time_schedule/data
 
 [Install]
 WantedBy=multi-user.target

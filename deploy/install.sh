@@ -6,7 +6,7 @@
 # What it does (idempotent):
 #   1. preflight: tools, Python >= 3.9, outbound HTTPS to the SSRL schedule page
 #   2. creates the system user `beamtime`
-#   3. clones / fast-forwards the repo in /opt/ssrl_beam_time_schedule, byte-compiles it
+#   3. clones / fast-forwards the repo in /SSRL_LOCAL_OM/ssrl_beam_time_schedule, byte-compiles it
 #   4. installs + (re)starts the systemd service `ssrl-beamtime` on 127.0.0.1:8010
 #   5. installs the nginx location snippet as /etc/nginx/mail-in-xas.d/xray_schedule.conf
 #      (included by the mail-in XAS portal's server block), runs `nginx -t` and reloads;
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/slaclab/ssrl_beam_time_schedule.git"
-APP_DIR="/opt/ssrl_beam_time_schedule"
+APP_DIR="/SSRL_LOCAL_OM/ssrl_beam_time_schedule"
 SVC_USER="beamtime"
 SERVICE="ssrl-beamtime"
 PORT=8010
@@ -48,17 +48,29 @@ echo "==> user"
 id -u "$SVC_USER" &>/dev/null || useradd --system --no-create-home --shell /sbin/nologin "$SVC_USER"
 
 echo "==> code"
+# Run git as the owner of the checkout (it may have been cloned by a normal user;
+# git refuses to work as root in a repo owned by someone else).
+repo_git() {
+  local owner; owner=$(stat -c %U "$APP_DIR")
+  if [[ "$owner" == root ]]; then git -C "$APP_DIR" "$@"; else sudo -u "$owner" git -C "$APP_DIR" "$@"; fi
+}
 if [[ -d "$APP_DIR/.git" ]]; then
-  git -C "$APP_DIR" pull --ff-only
+  repo_git pull --ff-only
 else
+  mkdir -p "$(dirname "$APP_DIR")"
   git clone "$REPO_URL" "$APP_DIR"
 fi
 install -d -o "$SVC_USER" -g "$SVC_USER" -m 755 "$APP_DIR/data"
-# Syntax check with the system Python; bytecode goes to a temp dir, not into /opt.
+if ! sudo -u "$SVC_USER" test -r "$APP_DIR/server.py"; then
+  echo "ERROR: user $SVC_USER cannot read $APP_DIR/server.py; make $APP_DIR and its parent" \
+       "directories world-readable/traversable (e.g. chmod o+rx)" >&2
+  exit 1
+fi
+# Syntax check with the system Python; bytecode goes to a temp dir, not into the repo.
 pyc_tmp=$(mktemp -d)
 PYTHONPYCACHEPREFIX="$pyc_tmp" python3 -m py_compile "$APP_DIR"/*.py
 rm -rf "$pyc_tmp"
-echo "    $(git -C "$APP_DIR" log -1 --format='%h %s')"
+echo "    $(repo_git log -1 --format='%h %s')"
 
 echo "==> service"
 install -m 644 "$APP_DIR/deploy/$SERVICE.service" "/etc/systemd/system/$SERVICE.service"

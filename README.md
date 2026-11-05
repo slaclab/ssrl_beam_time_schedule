@@ -27,7 +27,7 @@ The ↻ button in the UI forces a re-fetch (at most once a minute).
 
 Served at `/mail-in-xas/xray_schedule/`: nginx proxies that prefix to the Python server,
 which runs as the systemd service `ssrl-beamtime` on `127.0.0.1:8010` under the
-unprivileged user `beamtime`, from `/opt/ssrl_beam_time_schedule`.
+unprivileged user `beamtime`, from `/SSRL_LOCAL_OM/ssrl_beam_time_schedule`.
 
 SLAC's reverse proxy already forwards `https://www-ssrl.slac.stanford.edu/mail-in-xas/*`
 to the VM (TLS ends there), so the page is public at
@@ -41,10 +41,13 @@ into that directory and never edits the portal's config.
 First install, and every update afterwards (the script is idempotent):
 
 ```
-curl -fsSLO https://raw.githubusercontent.com/slaclab/ssrl_beam_time_schedule/main/deploy/install.sh
-sudo bash install.sh
-# later updates:  sudo bash /opt/ssrl_beam_time_schedule/deploy/install.sh
+git clone https://github.com/slaclab/ssrl_beam_time_schedule.git /SSRL_LOCAL_OM/ssrl_beam_time_schedule
+sudo bash /SSRL_LOCAL_OM/ssrl_beam_time_schedule/deploy/install.sh
+# later updates: run the same install.sh again (it pulls as the owner of the checkout)
 ```
+
+The checkout may be owned by a normal user; the `beamtime` user only needs read access
+(`/SSRL_LOCAL_OM` and the checkout must be traversable by others, e.g. `chmod o+rx`).
 
 [`deploy/install.sh`](deploy/install.sh):
 
