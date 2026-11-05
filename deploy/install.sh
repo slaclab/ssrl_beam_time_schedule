@@ -79,7 +79,7 @@ systemctl enable "$SERVICE" >/dev/null
 systemctl restart "$SERVICE"
 ok=""
 for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:$PORT/api/schedule" -o /dev/null; then ok=1; break; fi
+  if curl -fs "http://127.0.0.1:$PORT/api/schedule" -o /dev/null; then ok=1; break; fi
   sleep 1
 done
 if [[ -n "$ok" ]]; then

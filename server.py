@@ -78,16 +78,18 @@ class ScheduleCache:
 
     def get(self) -> dict | None:
         if self._data is None or time.monotonic() - self._loaded_at > self.max_age:
-            self.refresh()
+            # min_interval: if another thread fetched while we waited for the lock, reuse it.
+            self.refresh(min_interval=self.max_age)
         if self._data is None:
             return None
         return {**self._data, "lastError": self._last_error}
 
     def run_background(self):
+        """Fetch now, then every max_age seconds (the server is already listening)."""
         def loop():
             while True:
+                self.refresh(min_interval=self.max_age)
                 time.sleep(self.max_age)
-                self.refresh()
         threading.Thread(target=loop, daemon=True, name="schedule-refresh").start()
 
 
@@ -147,8 +149,7 @@ def main():
                         format="%(asctime)s %(levelname)s %(message)s")
 
     cache = ScheduleCache(CACHE_FILE, args.refresh)
-    cache.refresh()           # fetch at startup; falls back to disk cache on failure
-    cache.run_background()
+    cache.run_background()    # first fetch runs right away; disk cache serves meanwhile / on failure
 
     server = ThreadingHTTPServer((args.host, args.port), make_handler(cache))
     url = f"http://{'localhost' if args.host in ('127.0.0.1', '0.0.0.0') else args.host}:{args.port}/"
