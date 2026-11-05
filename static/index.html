@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSRL Beam Time</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>SSRL Beam Time</span>
+    </div>
+
+    <div class="segmented" role="tablist" aria-label="View">
+      <button role="tab" id="view-week" data-view="week" aria-selected="true">Week</button>
+      <button role="tab" id="view-run" data-view="run" aria-selected="false">Run period</button>
+    </div>
+
+    <div class="nav">
+      <button class="icon-btn" id="prev" title="Previous (←)" aria-label="Previous">&#8249;</button>
+      <button class="btn" id="today" title="Go to now (T)">Today</button>
+      <button class="icon-btn" id="next" title="Next (→)" aria-label="Next">&#8250;</button>
+      <h1 id="range-label" class="range-label"></h1>
+      <select id="period-select" aria-label="Run period" hidden></select>
+    </div>
+
+    <div class="status">
+      <span id="status-text">Loading…</span>
+      <button class="icon-btn" id="refresh" title="Fetch latest schedule from SSRL" aria-label="Refresh">&#8635;</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section>
+        <div class="section-head">
+          <h2>Beam lines</h2>
+          <span id="bl-count" class="muted"></span>
+        </div>
+        <div class="quick">
+          <button class="link-btn" id="bl-all">All</button>
+          <button class="link-btn" id="bl-none">None</button>
+          <button class="link-btn" id="bl-xas" title="2-2, 4-3, 7-3, 9-3, 11-2, 14-3a">XAS</button>
+        </div>
+        <ul id="bl-list" class="bl-list"></ul>
+      </section>
+
+      <section>
+        <h2>Legend</h2>
+        <ul id="legend" class="legend"></ul>
+        <p class="hint">Owl shift starts 23:00 the evening before.
+          Split cells (e.g. <code>PAAM/AP</code>) are shown as halves of the shift.</p>
+      </section>
+
+      <section class="source">
+        <a id="source-link" href="https://www-ssrl.slac.stanford.edu/xray_schedule.html"
+           target="_blank" rel="noopener">SSRL Beam Port Schedule ↗</a>
+      </section>
+    </aside>
+
+    <main class="main">
+      <div id="timeline-wrap" class="timeline-wrap">
+        <div id="timeline" class="timeline"></div>
+      </div>
+      <div id="message" class="message" hidden></div>
+    </main>
+  </div>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
